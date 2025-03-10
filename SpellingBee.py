@@ -7,7 +7,13 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 os.chdir(sys.path[0])
 
-def getLetters():
+def initialize_firestore():
+    cred_path = "/Users/aaronmedina/Developer/SpellingBee/spellingbee-6a615-firebase-adminsdk-fbsvc-937864aead.json"
+    cred = credentials.Certificate(cred_path)
+    firebase_admin.initialize_app(cred)
+    return firestore.client()
+
+def get_letters(db):
     url = "https://www.nytimes.com/puzzles/spelling-bee"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -17,12 +23,22 @@ def getLetters():
     data = element.contents[0].replace('window.gameData = ','')
     data = json.loads(data)
     #print(json.dumps(data, indent = 4))
-    dt = data.get('today').get('printDate')
+
+    today_data = data.get('today')
+    if not today_data:
+        print("No data found for today.")
+        return
+
+    dt = today_data.get('printDate')
 
     with open('jsonData' + os.sep + dt + '.json','w') as fp:
-        json.dump(data,fp, indent = 4)
+        json.dump(today_data,fp, indent = 4)
 
-    #print(dt)
+    doc_ref = db.collection('words_lists').document(dt)
+    doc_ref.set(today_data)
+    print(f"Data for {dt} uploaded to Firestore.")
 
 if __name__ == "__main__":
-    getLetters()
+    db = initialize_firestore()
+
+    get_letters(db)
